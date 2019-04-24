@@ -1,0 +1,268 @@
+---
+title: "Atividade avaliativa -2"
+Author: "Gerson Vasconcelos"
+output: html_notebook
+---
+
+
+
+**10. This question should be answered using the Weekly data set, which is part of the ISLR package. This data is similar in nature to the Smarket data from this chapter’s lab, except that it contains 1089 Weekly returns for 21 years, from the beginning of 1990 to the end of 2010.**  
+
+**(a) Produce some numerical and graphical summaries of the Weekly data. Do there appear to be any patterns?**
+
+```{r}
+library(tidyverse)
+library(ISLR)
+
+data("Weekly")
+summary(Weekly)
+
+```
+There is one categorical feature and  all other features are numerical
+```{r}
+plot(Weekly)
+```
+
+
+The scatter plot of the Weekly data indicates all the Lag variables are weakly correlated to each other. From the scatter plot, it can also be noted that the volumes of shares traded is rapidly increasing., year by year.
+
+```{r}
+
+cor(Weekly[,-9])
+```
+
+There is a strong correlation between Year and Volume, all the others have a weak correlation.
+
+
+**(b) Use the full data set to perform a logistic regression with Direction as the response and the five lag variables plus Volume as predictors. Use the summary function to print the results. Do any of the predictors appear to be statistically significant? If so, which ones?**
+
+```{r}
+reg1 <- glm(Direction~.-Year-Today,data=Weekly,family="binomial")
+summary(reg1)
+```
+
+The only statistically significant variables are Lag1 and Lag2.
+
+**(c) Compute the confusion matrix and overall fraction of correct predictions. Explain what the confusion matrix is telling you about the types of mistakes made by logistic regression.**
+
+```{r}
+glm.proba <- predict(reg1,type = "response")
+glm.pred <- rep("Down",nrow(Weekly))
+glm.pred[glm.proba>0.5] = "Up"
+
+table(glm.pred,Weekly$Direction)
+```
+```{r}
+mean(glm.pred == Weekly$Direction)
+```
+```{r}
+557/(557+48)
+```
+```{r}
+54/(430+54)
+```
+
+We can be observed that the algorithm classifies about 56% of the observations correctly. It also performs well on the days that the stock increases, since about 92% of ‘Up’ entries are correctly classified. However, it performs poorly on days the market is down, with about 11% of these cases classified correctly.
+
+**(d) Now fit the logistic regression model using a training data period from 1990 to 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall fraction of correct predictions for the held out data (that is, the data from 2009 and 2010).**
+
+```{r}
+train <- Weekly[,"Year"] <= 2008
+
+glm.fit <- glm(Direction~Lag2,data = Weekly,subset = train, family = "binomial")
+summary(glm.fit)
+```
+
+```{r}
+glm.probs <- predict(glm.fit,Weekly[!train,],type = "response")
+
+glm.pred <- rep("Down",nrow(Weekly))
+glm.pred[glm.probs>0.5] = "Up"
+
+table(glm.pred,Weekly[,"Direction"])
+```
+```{r}
+mean(glm.pred == Weekly[,"Direction"])
+```
+
+**(e) Repeat (d) using LDA.**
+
+```{r}
+library(MASS)
+
+lda.fit <- lda(Direction~Lag2,data=Weekly,subset=train)
+
+lda.fit
+```
+
+```{r}
+lda.pred <- predict(lda.fit,Weekly[!train,])
+lda.class <- lda.pred$class
+
+table(lda.class,Weekly[!train,9])
+```
+
+```{r}
+mean(lda.class == Weekly[!train,9])
+```
+
+** (f) Repeat (d) using QDA. **
+
+```{r}
+qda.fit <- qda(Direction~Lag2,data=Weekly,subset=train)
+qda.fit
+```
+
+```{r}
+qda.pred <- predict(qda.fit,Weekly[!train,])
+qda.class <- qda.pred$class
+
+table(qda.class,Weekly[!train,9])
+```
+
+```{r}
+mean(qda.class == Weekly[!train,9])
+```
+
+**(h) Which of these methods appears to provide the best results on this data?**
+
+LDA because of the higher prediction accuracy
+
+
+**11. In this problem, you will develop a model to predict whether a given car gets high or low gas mileage based on the Auto data set.**
+
+
+**(a) Create a binary variable, mpg01 , that contains a 1 if mpg contains a value above its median, and a 0 if mpg contains a value below its median. You can compute the median using the median() function. Note you may find it helpful to use the data.frame() function to create a single data set containing both mpg01 and the other Auto variables.**
+
+```{r}
+
+
+mpg01 <- rep(0,nrow(Auto))
+mpg01[Auto[,'mpg']>median(Auto[,'mpg'])] <- 1
+
+mpg01 = as.factor(mpg01)
+Data = data.frame(Auto,mpg01)
+
+
+table(mpg01)
+```
+
+**(b) Explore the data graphically in order to investigate the associ- ation between mpg01 and the other features. Which of the other features seem most likely to be useful in predicting mpg01 ? Scatterplots and boxplots may be useful tools to answer this question. Describe your findings.**
+
+```{r}
+par(mfrow = c(2,2))
+boxplot(acceleration~mpg01,Data,main="Accel~mpg01")
+boxplot(weight~mpg01,Data,main="Weight~mpg01")
+boxplot(horsepower~mpg01,Data,main="Horsep~mpg01")
+boxplot(displacement~mpg01,Data,main="Disp~mpg01")
+```
+
+Horsepower,weight and displacement seem the best ones to use.
+
+**(c) Split the data into a training set and a test set.**
+
+```{r}
+Data.train = Data[1:196,]
+Data.test = Data[196:392,]
+```
+
+
+**(d) Perform LDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?**
+
+```{r}
+lda.fit = lda(mpg01~weight+displacement,Data)
+lda.fit
+```
+
+
+
+```{r}
+lda.pred = predict(lda.fit, Data.test[,c('horsepower','weight','displacement')] )
+table(lda.pred$class,Data.test[,'mpg01'])
+```
+
+
+```{r}
+mean(lda.pred$class != Data.test[,'mpg01'])
+```
+
+Using the LDA model with the predictors horsepower, and displacement yields a miss classification error of 8.1%. Adding remaining predictors does not provide a good improvement.
+
+
+**(e) Perform QDA on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?**
+
+```{r}
+qda.fit = qda(mpg01~horsepower+displacement,Data)
+qda.fit
+```
+```{r}
+qda.pred = predict(qda.fit, Data.test[,c('horsepower','weight','displacement')] )
+table(qda.pred$class,Data.test[,'mpg01'])
+```
+
+
+```{r}
+mean(qda.pred$class != Data.test[,'mpg01'])
+```
+
+The test error is slightly higher in this case. 10% of the test data is misclassified.
+
+**(f) Perform logistic regression on the training data in order to predict mpg01 using the variables that seemed most associated with mpg01 in (b). What is the test error of the model obtained?**
+```{r}
+logit.fit = glm(mpg01~horsepower+displacement,family = binomial,Data.train)
+summary(logit.fit)
+```
+
+```{r}
+logit.pred = predict(logit.fit,Data.test[,c('horsepower','weight','displacement')])
+
+logit.class = ifelse(logit.pred>0.5,1,0)
+
+table(logit.class,Data.test[,'mpg01'])
+```
+
+```{r}
+mean(logit.class != Data.test[,'mpg01'])
+```
+
+```{r}
+logit.class = ifelse(logit.pred>0.25,1,0)
+
+table(logit.class,Data.test[,'mpg01'])
+```
+
+```{r}
+mean(logit.class != Data.test[,'mpg01'])
+```
+
+Logistic regression is the worst model so far, with 18% of the observations being misclassified. However, lowering the minimum probability threshold improves the model.,
+
+**13. Using the Boston data set, fit classification models in order to predict whether a given suburb has a crime rate above or below the median. Explore logistic regression, LDA, and KNN models using various subsets of the predictors. Describe your findings.**
+
+```{r}
+mcrim = median(Boston[,'crim'])
+mcrim01 = ifelse(Boston[,'crim']>mcrim,1,0)  
+
+table(mcrim01)
+```
+
+
+
+```{r}
+Data = cbind(Boston,mcrim01)
+```
+
+```{r}
+par(mfrow = c(2,2))
+boxplot(medv~mcrim01,Data,main='medv~mcrim01')
+boxplot(lstat~mcrim01,Data,main='lstat~mcrim01')
+boxplot(dis~mcrim01,Data,main='dis~mcrim01')
+boxplot(age~mcrim01,Data,main='age~mcrim01')
+```
+
+From the plots above we can read the following; While there is a great variation, the median value of homes in a town is associated with higher crime. The a higher percentage of a lower status population is positively associated with a crime rate. The same can be said about the proportion of homes built before 1940.
+
+Interestingly enough, the weighted mean of distance to employment centers has a strong negative correlation with crime.
+
+
+
